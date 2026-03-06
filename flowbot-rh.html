@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlowBot RH</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0a1a;
+    --surface: #16102a;
+    --card: #1e1638;
+    --border: #2e2255;
+    --accent1: #7c3aed;
+    --accent2: #a855f7;
+    --accent3: #06b6d4;
+    --text: #e9e3ff;
+    --muted: #8b7db8;
+    --bubble-bot: #1e1638;
+    --bubble-user: #5b21b6;
+  }
+
+  body {
+    font-family: 'Sora', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* Blobs de fundo */
+  .blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.18;
+    pointer-events: none;
+    animation: float 10s ease-in-out infinite;
+  }
+  .blob-1 { width: 500px; height: 500px; background: var(--accent1); top: -150px; right: -100px; animation-delay: 0s; }
+  .blob-2 { width: 350px; height: 350px; background: var(--accent3); bottom: -100px; left: -80px; animation-delay: 4s; }
+  .blob-3 { width: 250px; height: 250px; background: #ec4899; top: 50%; left: 5%; animation-delay: 2s; }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) scale(1); }
+    50% { transform: translateY(-30px) scale(1.05); }
+  }
+
+  /* Layout principal */
+  .app {
+    width: 420px;
+    height: 680px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(124,58,237,0.2);
+    position: relative;
+    z-index: 10;
+    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(40px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Header */
+  .header {
+    padding: 18px 22px;
+    background: linear-gradient(135deg, #1a1035 0%, #251848 100%);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .bot-avatar {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg, var(--accent1), var(--accent3));
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+    box-shadow: 0 0 20px rgba(124,58,237,0.5);
+  }
+
+  .header-info { flex: 1; }
+  .header-name { font-size: 15px; font-weight: 700; color: #fff; }
+  .header-status {
+    font-size: 11px; color: var(--accent3);
+    display: flex; align-items: center; gap: 5px; margin-top: 2px;
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent3);
+    box-shadow: 0 0 8px var(--accent3);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
+  }
+
+  /* Mensagens */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scroll-behavior: smooth;
+  }
+  .messages::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-track { background: transparent; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .msg { display: flex; gap: 8px; animation: msgIn 0.3s ease; max-width: 88%; }
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg.bot { align-self: flex-start; align-items: flex-end; }
+  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+
+  .msg-avatar {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, var(--accent1), var(--accent3));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex-shrink: 0;
+  }
+
+  .bubble {
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 13.5px;
+    line-height: 1.55;
+    max-width: 100%;
+  }
+  .bot .bubble {
+    background: var(--bubble-bot);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+    color: var(--text);
+  }
+  .user .bubble {
+    background: var(--bubble-user);
+    border-bottom-right-radius: 4px;
+    color: #fff;
+  }
+
+  /* Chips de opções */
+  .options {
+    display: flex; flex-wrap: wrap; gap: 7px;
+    margin-top: 10px;
+    animation: msgIn 0.4s ease 0.2s both;
+  }
+
+  .chip {
+    padding: 7px 13px;
+    background: transparent;
+    border: 1px solid var(--accent2);
+    color: var(--accent2);
+    border-radius: 20px;
+    font-size: 12.5px;
+    font-family: 'Sora', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .chip:hover, .chip:focus {
+    background: var(--accent1);
+    border-color: var(--accent1);
+    color: #fff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(124,58,237,0.4);
+    outline: none;
+  }
+  .chip:active { transform: translateY(0); }
+
+  /* Typing indicator */
+  .typing {
+    display: flex; align-items: center; gap: 4px;
+    padding: 12px 14px;
+    background: var(--bubble-bot);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    border-bottom-left-radius: 4px;
+    width: fit-content;
+  }
+  .typing span {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--muted);
+    animation: bounce 1.2s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-6px); }
+  }
+
+  /* Input area */
+  .input-area {
+    padding: 14px 16px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 10px; align-items: center;
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .input-field {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Sora', sans-serif;
+    font-size: 13.5px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-field::placeholder { color: var(--muted); }
+  .input-field:focus { border-color: var(--accent2); }
+
+  .send-btn {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent1), var(--accent2));
+    border: none; border-radius: 12px;
+    color: #fff; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    transition: transform 0.15s, box-shadow 0.15s;
+    flex-shrink: 0;
+  }
+  .send-btn:hover { transform: scale(1.08); box-shadow: 0 4px 14px rgba(124,58,237,0.5); }
+  .send-btn:active { transform: scale(0.95); }
+
+  /* Card de confirmação */
+  .confirm-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 12.5px;
+    margin-top: 8px;
+    color: var(--muted);
+  }
+  .confirm-card strong { color: var(--text); display: block; margin-bottom: 6px; font-size: 13px; }
+  .confirm-card .row { display: flex; justify-content: space-between; padding: 3px 0; }
+  .confirm-card .val { color: var(--accent2); }
+  .confirm-card .badge {
+    display: inline-block; margin-top: 8px;
+    background: rgba(6,182,212,0.15); color: var(--accent3);
+    border: 1px solid rgba(6,182,212,0.3);
+    border-radius: 20px; padding: 3px 10px; font-size: 11px;
+  }
+
+  .divider {
+    text-align: center; font-size: 11px; color: var(--muted);
+    position: relative; margin: 4px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="blob blob-3"></div>
+
+<div class="app">
+  <div class="header">
+    <div class="bot-avatar">🤖</div>
+    <div class="header-info">
+      <div class="header-name">FlowBot RH</div>
+      <div class="header-status"><span class="status-dot"></span> Online agora</div>
+    </div>
+  </div>
+
+  <div class="messages" id="messages"></div>
+
+  <div class="input-area">
+    <input class="input-field" id="userInput" type="text" placeholder="Digite sua mensagem..." autocomplete="off" />
+    <button class="send-btn" onclick="sendMessage()" title="Enviar">➤</button>
+  </div>
+</div>
+
+<script>
+// ── Estado ──────────────────────────────────────────
+let state = { step: 'menu', ferias: {}, chamado: {} };
+
+// ── Dados simulados ──────────────────────────────────
+const userData = {
+  nome: 'Ana Souza',
+  matricula: 'TI-0042',
+  saldo_ferias: 22,
+  holerite: { mes: 'Maio/2025', salario: 'R$ 5.200,00', descontos: 'R$ 890,00', liquido: 'R$ 4.310,00' },
+  beneficios: [
+    { nome: 'Plano de Saúde',   desc: 'Unimed Nacional – Cobertura ampla' },
+    { nome: 'Vale Refeição',    desc: 'R$ 38,00/dia útil' },
+    { nome: 'Vale Transporte',  desc: 'Conforme uso + desconto legal' },
+    { nome: 'Gympass',          desc: 'Plano Basic incluso' },
+  ]
+};
+
+// ── Helpers de UI ─────────────────────────────────────
+const msgBox = document.getElementById('messages');
+
+function scrollBottom() {
+  setTimeout(() => msgBox.scrollTop = msgBox.scrollHeight, 50);
+}
+
+function addMsg(who, html) {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + who;
+  wrap.innerHTML = who === 'bot'
+    ? `<div class="msg-avatar">🤖</div><div class="bubble">${html}</div>`
+    : `<div class="bubble">${html}</div>`;
+  msgBox.appendChild(wrap);
+  scrollBottom();
+}
+
+function botSay(html, delay) {
+  delay = delay || 700;
+  // mostra indicador de digitação
+  const t = document.createElement('div');
+  t.className = 'msg bot'; t.id = 'typing';
+  t.innerHTML = `<div class="msg-avatar">🤖</div><div class="typing"><span></span><span></span><span></span></div>`;
+  msgBox.appendChild(t);
+  scrollBottom();
+
+  return new Promise(function(resolve) {
+    setTimeout(function() {
+      const el = document.getElementById('typing');
+      if (el) el.remove();
+      addMsg('bot', html);
+      resolve();
+    }, delay);
+  });
+}
+
+function addOptions(opts) {
+  // remove opções anteriores se existirem
+  clearOptions();
+
+  const wrap = document.createElement('div');
+  wrap.className = 'options';
+  wrap.id = 'options';
+
+  opts.forEach(function(o) {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.textContent = o.label;
+    b.addEventListener('click', function() {
+      clearOptions();
+      handleOption(o.value, o.label);
+    });
+    wrap.appendChild(b);
+  });
+
+  msgBox.appendChild(wrap);
+  scrollBottom();
+}
+
+function clearOptions() {
+  const o = document.getElementById('options');
+  if (o) o.remove();
+}
+
+function gerarCodigo(prefix) {
+  return prefix + '-' + Math.floor(10000 + Math.random() * 90000);
+}
+
+// ── handleOption — ÚNICA função, sem duplicata ────────
+async function handleOption(val, label) {
+
+  // Menu principal
+  if (val === 'menu') {
+    await showMenu();
+    return;
+  }
+
+  // Confirmação / cancelamento de férias
+  if (val === 'ferias_confirm') {
+    await feriasConfirmar();
+    return;
+  }
+  if (val === 'ferias_cancel') {
+    await botSay('Tudo bem! Solicitação cancelada. 😊');
+    await voltarMenu();
+    return;
+  }
+
+  // Urgência do chamado
+  if (val === 'chamado_urgente' || val === 'chamado_normal') {
+    state.chamado.urgencia = val === 'chamado_urgente' ? 'Urgente' : 'Normal';
+    await chamadoFinalizar();
+    return;
+  }
+
+  // Tipo de declaração
+  if (val === 'decl_vinculo' || val === 'decl_renda' || val === 'decl_ir') {
+    const nomes = { decl_vinculo: 'Vínculo Empregatício', decl_renda: 'Declaração de Renda', decl_ir: 'Informe de IR' };
+    addMsg('user', label || nomes[val]);
+    const proto = gerarCodigo('DECL');
+    await botSay(
+      `Solicitação registrada! 📄` +
+      `<div class="confirm-card"><strong>${nomes[val]}</strong>` +
+      `<div class="row"><span>Protocolo</span><span class="val">${proto}</span></div>` +
+      `<div class="row"><span>Prazo</span><span class="val">2 dias úteis</span></div>` +
+      `<div class="row"><span>Entrega</span><span class="val">E-mail cadastrado</span></div>` +
+      `<span class="badge">✓ Solicitação enviada ao RH</span></div>`
+    );
+    await voltarMenu();
+    return;
+  }
+
+  // Fluxos principais
+  if (val === 'ferias')     { addMsg('user', label || '🌴 Solicitar Férias');      await flowFerias();      return; }
+  if (val === 'holerite')   { addMsg('user', label || '📋 Consultar Holerite');    await flowHolerite();    return; }
+  if (val === 'atestado')   { addMsg('user', label || '🏥 Enviar Atestado');       await flowAtestado();    return; }
+  if (val === 'beneficios') { addMsg('user', label || '💼 Benefícios');            await flowBeneficios();  return; }
+  if (val === 'chamado')    { addMsg('user', label || '🎫 Abrir Chamado para RH'); await flowChamado();     return; }
+  if (val === 'declaracao') { addMsg('user', label || '📄 Solicitar Declaração');  await flowDeclaracao();  return; }
+}
+
+// ── Fluxos ────────────────────────────────────────────
+async function showMenu() {
+  state.step = 'menu';
+  await botSay(`Olá, <strong>${userData.nome}</strong>! 👋<br>Sou o <strong>FlowBot RH</strong>. O que posso fazer por você hoje?`);
+  addOptions([
+    { label: '🌴 Solicitar Férias',      value: 'ferias'      },
+    { label: '📋 Consultar Holerite',    value: 'holerite'    },
+    { label: '🏥 Enviar Atestado',       value: 'atestado'    },
+    { label: '💼 Benefícios',            value: 'beneficios'  },
+    { label: '🎫 Abrir Chamado para RH', value: 'chamado'     },
+    { label: '📄 Solicitar Declaração',  value: 'declaracao'  },
+  ]);
+}
+
+async function flowFerias() {
+  state.step = 'ferias_dias';
+  state.ferias = {};
+  await botSay(`Você tem <strong>${userData.saldo_ferias} dias</strong> de férias disponíveis. 🎉<br>Quantos dias deseja tirar? (mínimo 5)`);
+}
+
+async function flowHolerite() {
+  const h = userData.holerite;
+  await botSay(
+    `Aqui está seu holerite de <strong>${h.mes}</strong>:` +
+    `<div class="confirm-card"><strong>📄 Contracheque</strong>` +
+    `<div class="row"><span>Salário Bruto</span><span class="val">${h.salario}</span></div>` +
+    `<div class="row"><span>Descontos</span><span class="val" style="color:#f87171">${h.descontos}</span></div>` +
+    `<div class="row"><span><strong>Salário Líquido</strong></span><span class="val" style="color:#4ade80"><strong>${h.liquido}</strong></span></div>` +
+    `<span class="badge">✓ Homologado</span></div>`
+  );
+  await voltarMenu();
+}
+
+async function flowAtestado() {
+  await botSay(
+    `Para enviar seu atestado médico, encaminhe o arquivo para:<br><br>` +
+    `📧 <strong>rh.atestados@empresa.com.br</strong><br><br>` +
+    `Assunto: <strong>[ATESTADO] ${userData.matricula} – ${userData.nome}</strong><br><br>` +
+    `O RH processará em até <strong>1 dia útil</strong>. ✅`
+  );
+  await voltarMenu();
+}
+
+async function flowBeneficios() {
+  const list = userData.beneficios.map(function(b) {
+    return `<div class="row" style="margin:4px 0"><span>✦ <strong>${b.nome}</strong></span></div>` +
+           `<div style="color:var(--muted);font-size:12px;margin-left:14px;margin-bottom:4px">${b.desc}</div>`;
+  }).join('');
+  await botSay(`Seus benefícios ativos:<div class="confirm-card"><strong>🎁 Pacote de Benefícios</strong>${list}</div>`);
+  await voltarMenu();
+}
+
+async function flowChamado() {
+  state.step = 'chamado_assunto';
+  state.chamado = {};
+  await botSay('Qual o assunto do chamado?<br><small style="color:var(--muted)">ex: dúvida salarial, alteração cadastral, problema com ponto...</small>');
+}
+
+async function chamadoFinalizar() {
+  const id = gerarCodigo('RH');
+  const prazo = state.chamado.urgencia === 'Urgente' ? '4 horas' : '2 dias úteis';
+  await botSay(
+    `Chamado aberto com sucesso! 🎫` +
+    `<div class="confirm-card"><strong>📋 Chamado ${id}</strong>` +
+    `<div class="row"><span>Assunto</span><span class="val" style="max-width:55%;text-align:right;font-size:12px">${state.chamado.assunto}</span></div>` +
+    `<div class="row"><span>Urgência</span><span class="val">${state.chamado.urgencia}</span></div>` +
+    `<div class="row"><span>Prazo estimado</span><span class="val">${prazo}</span></div>` +
+    `<span class="badge">✓ Notificação enviada ao RH</span></div>`
+  );
+  await voltarMenu();
+}
+
+async function flowDeclaracao() {
+  await botSay('Qual declaração você precisa?');
+  addOptions([
+    { label: '📝 Vínculo Empregatício',  value: 'decl_vinculo' },
+    { label: '💰 Declaração de Renda',   value: 'decl_renda'   },
+    { label: '🕐 IR (Imposto de Renda)', value: 'decl_ir'      },
+  ]);
+  state.step = 'declaracao_tipo';
+}
+
+async function feriasConfirmar() {
+  const proto = gerarCodigo('FER');
+  await botSay(
+    `Solicitação enviada! 🌴` +
+    `<div class="confirm-card"><strong>📋 Protocolo ${proto}</strong>` +
+    `<div class="row"><span>Início</span><span class="val">${state.ferias.inicio}</span></div>` +
+    `<div class="row"><span>Retorno previsto</span><span class="val">${state.ferias.fim}</span></div>` +
+    `<div class="row"><span>Dias</span><span class="val">${state.ferias.dias} dias</span></div>` +
+    `<div class="row"><span>Status</span><span class="val">Aguardando gestor</span></div>` +
+    `<span class="badge">✓ E-mail enviado ao gestor</span></div>`
+  );
+  await voltarMenu();
+}
+
+async function voltarMenu() {
+  setTimeout(function() {
+    addOptions([{ label: '🏠 Voltar ao menu', value: 'menu' }]);
+  }, 500);
+}
+
+// ── Input de texto ─────────────────────────────────────
+async function handleTextInput(text) {
+  addMsg('user', text);
+
+  if (state.step === 'ferias_dias') {
+    const dias = parseInt(text);
+    if (isNaN(dias) || dias < 5 || dias > userData.saldo_ferias) {
+      await botSay(`Por favor, informe um número entre 5 e ${userData.saldo_ferias}.`);
+      return;
+    }
+    state.ferias.dias = dias;
+    state.step = 'ferias_inicio';
+    await botSay('Qual a data de início das férias?<br><small style="color:var(--muted)">Formato: DD/MM/AAAA — ex: 01/07/2025</small>');
+    return;
+  }
+
+  if (state.step === 'ferias_inicio') {
+    state.ferias.inicio = text;
+    const partes = text.split('/');
+    if (partes.length === 3) {
+      const d = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]) + state.ferias.dias);
+      state.ferias.fim = d.toLocaleDateString('pt-BR');
+    } else {
+      state.ferias.fim = '—';
+    }
+    state.step = 'ferias_confirm';
+    await botSay(
+      `Resumo da solicitação:` +
+      `<div class="confirm-card"><strong>🌴 Férias</strong>` +
+      `<div class="row"><span>Início</span><span class="val">${state.ferias.inicio}</span></div>` +
+      `<div class="row"><span>Retorno previsto</span><span class="val">${state.ferias.fim}</span></div>` +
+      `<div class="row"><span>Dias</span><span class="val">${state.ferias.dias} dias</span></div></div>` +
+      `<br>Confirmar solicitação?`
+    );
+    addOptions([
+      { label: '✅ Confirmar', value: 'ferias_confirm' },
+      { label: '❌ Cancelar',  value: 'ferias_cancel'  },
+    ]);
+    return;
+  }
+
+  if (state.step === 'chamado_assunto') {
+    state.chamado.assunto = text;
+    state.step = 'chamado_urgencia';
+    await botSay('Qual a urgência desse chamado?');
+    addOptions([
+      { label: '🔴 Urgente', value: 'chamado_urgente' },
+      { label: '🟡 Normal',  value: 'chamado_normal'  },
+    ]);
+    return;
+  }
+
+  // Reconhecimento por palavras-chave quando fora de um fluxo
+  const lower = text.toLowerCase();
+  clearOptions();
+  if      (lower.includes('f\u00e9rias') || lower.includes('ferias'))                         { addMsg('user', ''); await flowFerias();     }
+  else if (lower.includes('holerite') || lower.includes('sal\u00e1rio') || lower.includes('salario')) { await flowHolerite();   }
+  else if (lower.includes('atestado'))                                                          { await flowAtestado();   }
+  else if (lower.includes('chamado'))                                                           { await flowChamado();    }
+  else if (lower.includes('benef\u00edcio') || lower.includes('beneficio'))                   { await flowBeneficios(); }
+  else if (lower.includes('declara\u00e7\u00e3o') || lower.includes('declaracao'))            { await flowDeclaracao(); }
+  else if (lower.includes('menu') || lower.includes('voltar'))                                 { await showMenu();       }
+  else {
+    await botSay('Ainda não sei responder isso. 😊 Use os botões abaixo ou tente palavras como "férias", "holerite", "chamado".');
+    await voltarMenu();
+  }
+}
+
+// ── Envio pelo input ───────────────────────────────────
+function sendMessage() {
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  clearOptions();
+  handleTextInput(text);
+}
+
+document.getElementById('userInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') sendMessage();
+});
+
+// ── Iniciar ───────────────────────────────────────────
+window.addEventListener('load', function() {
+  setTimeout(showMenu, 600);
+});
+</script>
+</body>
+</html>
